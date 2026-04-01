@@ -2,6 +2,7 @@ from langchain.tools import tool
 from langchain_community.document_loaders import TextLoader, PyPDFLoader, DirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from typing import Optional
 import os
@@ -16,12 +17,25 @@ CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_db")
 _vectorstore: Optional[Chroma] = None
 
 
+def get_embeddings():
+    """获取 embedding 模型，优先使用本地模型"""
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if openai_api_key:
+        return OpenAIEmbeddings()
+    else:
+        return HuggingFaceEmbeddings(
+            model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
+
+
 def get_vectorstore() -> Chroma:
     global _vectorstore
     if _vectorstore is not None:
         return _vectorstore
     
-    embeddings = OpenAIEmbeddings()
+    embeddings = get_embeddings()
     
     if os.path.exists(CHROMA_PERSIST_DIR):
         _vectorstore = Chroma(
@@ -149,7 +163,7 @@ def build_knowledge_base():
     """构建知识库向量索引"""
     logger.info("开始构建知识库...")
     
-    embeddings = OpenAIEmbeddings()
+    embeddings = get_embeddings()
     
     if os.path.exists(CHROMA_PERSIST_DIR):
         import shutil

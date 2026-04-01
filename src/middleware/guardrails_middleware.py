@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 from typing import Optional
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,19 @@ class GuardrailsDecision(BaseModel):
 
 class GuardrailsMiddleware(AgentMiddleware):
     def __init__(self, llm=None):
-        self.llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        if llm is None:
+            deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+            if deepseek_api_key:
+                self.llm = ChatOpenAI(
+                    model="deepseek-chat",
+                    temperature=0,
+                    openai_api_key=deepseek_api_key,
+                    openai_api_base="https://api.deepseek.com/v1",
+                )
+            else:
+                self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        else:
+            self.llm = llm
         self.denied_queries = []
 
     async def _classify_query(self, messages: list) -> str | None:
